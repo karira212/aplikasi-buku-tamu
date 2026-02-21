@@ -46,9 +46,12 @@ CREATE TABLE tamu (
   instansi_id INT NOT NULL DEFAULT 0,
   instansi_lainnya VARCHAR(255) DEFAULT NULL,
   foto_path VARCHAR(255) DEFAULT NULL,
+  ip_address VARCHAR(45) DEFAULT NULL,
+  user_agent VARCHAR(255) DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_kegiatan (kegiatan_id),
-  INDEX idx_instansi (instansi_id)
+  INDEX idx_instansi (instansi_id),
+  INDEX idx_nohp_created (no_hp, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 INSERT INTO kegiatan (nama) VALUES

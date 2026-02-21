@@ -27,6 +27,8 @@ if ($instansi_result) {
 
 $errors = [];
 $submitted = false;
+$already_submitted = false;
+$existing_time = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $guestbook_open) {
     $nama_lengkap = trim($_POST['nama_lengkap'] ?? '');
@@ -77,12 +79,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $guestbook_open) {
         }
     }
 
-    if (!isset($_FILES['foto']) || $_FILES['foto']['error'] !== UPLOAD_ERR_OK) {
-        $errors[] = 'Foto wajib diunggah.';
+    if (!$errors) {
+        $today = date('Y-m-d');
+        $stmt_check = $conn->prepare('SELECT id, created_at FROM tamu WHERE no_hp = ? AND DATE(created_at) = ? LIMIT 1');
+        if ($stmt_check) {
+            $stmt_check->bind_param('ss', $no_hp, $today);
+            $stmt_check->execute();
+            $result_check = $stmt_check->get_result();
+            if ($result_check && $row_check = $result_check->fetch_assoc()) {
+                $already_submitted = true;
+                $existing_time = $row_check['created_at'];
+            }
+            $stmt_check->close();
+        }
+    }
+
+    if (!$errors && !$already_submitted) {
+        if (!isset($_FILES['foto']) || $_FILES['foto']['error'] !== UPLOAD_ERR_OK) {
+            $errors[] = 'Foto wajib diunggah.';
+        }
     }
 
     $foto_path = null;
-    if (isset($_FILES['foto']) && $_FILES['foto']['error'] === UPLOAD_ERR_OK) {
+    if (!$errors && !$already_submitted && isset($_FILES['foto']) && $_FILES['foto']['error'] === UPLOAD_ERR_OK) {
         $tmp_name = $_FILES['foto']['tmp_name'];
         $mime = mime_content_type($tmp_name);
         $allowed = ['image/jpeg', 'image/png', 'image/webp'];
@@ -109,8 +128,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $guestbook_open) {
         }
     }
 
-    if (!$errors && $foto_path !== null) {
-        $sql = 'INSERT INTO tamu (nama_lengkap, no_hp, jabatan, alamat, kegiatan_id, kegiatan_lainnya, instansi_id, instansi_lainnya, foto_path, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())';
+    if (!$errors && !$already_submitted && $foto_path !== null) {
+        $sql = 'INSERT INTO tamu (nama_lengkap, no_hp, jabatan, alamat, kegiatan_id, kegiatan_lainnya, instansi_id, instansi_lainnya, foto_path, ip_address, user_agent, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())';
         $stmt = $conn->prepare($sql);
         if ($stmt) {
             $instansi_id_param = $use_instansi_lainnya ? 0 : $instansi_id;
@@ -119,8 +138,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $guestbook_open) {
             $kegiatan_lainnya_param = $use_kegiatan_lainnya ? $kegiatan_lainnya : null;
             $kegiatan_id_param_str = (string)$kegiatan_id_param;
             $instansi_id_param_str = (string)$instansi_id_param;
+            $ip_address = $_SERVER['REMOTE_ADDR'] ?? null;
+            $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? null;
             $stmt->bind_param(
-                'sssssssss',
+                'sssssssssss',
                 $nama_lengkap,
                 $no_hp,
                 $jabatan,
@@ -129,7 +150,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $guestbook_open) {
                 $kegiatan_lainnya_param,
                 $instansi_id_param_str,
                 $instansi_lainnya_param,
-                $foto_path
+                $foto_path,
+                $ip_address,
+                $user_agent
             );
             if ($stmt->execute()) {
                 $submitted = true;
@@ -141,6 +164,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $guestbook_open) {
             $errors[] = 'Terjadi kesalahan sistem.';
         }
     }
+}
+
+if ($already_submitted) {
+    $waktu = $existing_time ? date('d-m-Y H:i', strtotime($existing_time)) : date('d-m-Y H:i');
+    ?>
+<!doctype html>
+<html lang="id">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Buku Tamu TP PKK Kecamatan Koja</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light d-flex align-items-center" style="min-height:100vh;">
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-body text-center p-4">
+                    <h1 class="h4 mb-3">Terima Kasih</h1>
+                    <p class="mb-1">Anda sudah mengisi buku tamu. Silakan masuk.</p>
+                    <p class="text-muted mb-3">TP PKK Kecamatan Koja</p>
+                    <p class="small text-secondary mb-0">Waktu tercatat: <?php echo htmlspecialchars($waktu, ENT_QUOTES, 'UTF-8'); ?></p>
+                </div>
+            </div>
+            <div class="text-end mt-2">
+                <a href="admin/login.php" class="link-secondary link-offset-2 text-decoration-none small">Admin</a>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
+<?php
+    exit;
 }
 
 if ($submitted) {
