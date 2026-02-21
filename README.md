@@ -254,6 +254,6 @@ Jika Anda membutuhkan aplikasi sejenis untuk:
 Silakan hubungi:
 
 - **WhatsApp / Telepon**: `081287172216`
-- Donaso se-iklasnya : BRI Rek. 034001005720534 An.TURINO HADISAPUTRO
+- Donasi se-iklasnya : BRI Rek. 034001005720534 An.TURINO HADISAPUTRO
 
 Aplikasi ini dengan senang hati dapat dikembangkan lebih lanjut sesuai kebutuhan Anda. 
